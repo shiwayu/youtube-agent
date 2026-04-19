@@ -78,8 +78,7 @@ export async function POST(req: NextRequest) {
   })
 
   const data = await response.json()
-  const reply = data.content?.[0]?.text || 'エラーが発生しました'
-
+  const reply = data.content?.[0]?.text || JSON.stringify(data)
   const scriptMatch = reply.match(/SCRIPT_JSON_START\s*([\s\S]*?)\s*SCRIPT_JSON_END/)
   if (scriptMatch) {
     try {
