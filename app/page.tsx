@@ -14,6 +14,7 @@ export default function Home() {
   const [script, setScript] = useState({ p1: '', p2: '', p3: '' })
   const [activeTab, setActiveTab] = useState('p1')
   const msgsRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => { startConversation() }, [])
 
@@ -24,6 +25,7 @@ export default function Home() {
   async function startConversation() {
     setLoading(true)
     setMessages([])
+    setInput('')
     setScriptVisible(false)
     setScript({ p1: '', p2: '', p3: '' })
     const res = await fetch('/api/chat', {
@@ -34,15 +36,27 @@ export default function Home() {
     const data = await res.json()
     setMessages([{ role: 'ai', text: data.reply }])
     setLoading(false)
+    if (inputRef.current) {
+      inputRef.current.value = ''
+      inputRef.current.focus()
+    }
   }
 
   async function send() {
-    if (!input.trim() || loading) return
-    const userMsg = input.trim()
+    const currentInput = inputRef.current?.value.trim() || ''
+    if (!currentInput || loading) return
+
+    // 入力欄を即座にクリア
+    if (inputRef.current) {
+      inputRef.current.value = ''
+      inputRef.current.style.height = 'auto'
+    }
     setInput('')
-    const newMessages = [...messages, { role: 'user' as const, text: userMsg }]
+
+    const newMessages = [...messages, { role: 'user' as const, text: currentInput }]
     setMessages(newMessages)
     setLoading(true)
+
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -55,6 +69,7 @@ export default function Home() {
     }
     setMessages([...newMessages, { role: 'ai', text: data.reply }])
     setLoading(false)
+    if (inputRef.current) inputRef.current.focus()
   }
 
   function onKey(e: React.KeyboardEvent) {
@@ -76,16 +91,13 @@ export default function Home() {
     <div style={{ minHeight: '100vh', background: 'linear-gradient(140deg,#b8d4f0 0%,#c8b8e8 35%,#e0b8d0 65%,#f0c8d8 100%)', padding: '20px 12px' }}>
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
 
-        {/* ヘッダー */}
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 20, fontWeight: 700, color: '#1a1025' }}>YouTube 戦略台本エージェント</div>
           <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>チャットで答えるだけでプロ品質の台本を生成</div>
         </div>
 
-        {/* チャットエリア */}
         <div style={{ background: 'rgba(255,255,255,0.93)', borderRadius: 20, overflow: 'hidden', marginBottom: 16 }}>
 
-          {/* リセットボタン */}
           <div style={{ padding: '10px 16px', background: 'rgba(0,0,0,0.03)', borderBottom: '0.5px solid rgba(0,0,0,0.08)', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={startConversation}
@@ -115,8 +127,7 @@ export default function Home() {
 
           <div style={{ padding: '12px 16px', background: 'white', borderTop: '0.5px solid rgba(0,0,0,0.1)', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
             <textarea
-              value={input}
-              onChange={e => setInput(e.target.value)}
+              ref={inputRef}
               onKeyDown={onKey}
               placeholder="ここに入力...（Enterで送信）"
               rows={1}
@@ -130,7 +141,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 台本エリア */}
         {scriptVisible && (
           <div style={{ background: 'rgba(255,255,255,0.93)', borderRadius: 20, padding: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
