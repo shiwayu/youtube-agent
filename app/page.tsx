@@ -94,7 +94,7 @@ export default function Home() {
               ))}
             </div>
             <div style={{background:'#f9f8ff',border:'0.5px solid #ddd8f8',borderRadius:12,padding:16,maxHeight:400,overflowY:'auto',fontSize:13,lineHeight:1.9,color:'#1a1025',whiteSpace:'pre-wrap'}}>
-              {script[activeTab]}
+            {script[activeTab as keyof typeof script]}
             </div>
           </div>
         )}
