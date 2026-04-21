@@ -42,7 +42,11 @@ export default function Home() {
     taRef.current?.focus()
   }
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); send() }
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault()
+      e.stopPropagation()
+      send()
+    }
   }
   function copyScript() {
     const t = `=== パート1 ===\n${script.p1}\n\n=== パート2 ===\n${script.p2}\n\n=== パート3 ===\n${script.p3}`
