@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2000,
       system: SYSTEM_PROMPT,
       messages: apiMessages.length > 0 ? apiMessages : [{ role: 'user', content: 'スタート' }],
@@ -107,21 +107,18 @@ export async function POST(req: NextRequest) {
   const data = await response.json()
   const reply = data.content?.[0]?.text || JSON.stringify(data)
 
-  // パート1チェック
   const p1Match = reply.match(/==PART1_START==([\s\S]*?)==PART1_END==/)
   if (p1Match) {
     const cleanReply = reply.replace(/==PART1_START==[\s\S]*?==PART1_END==/, '').trim()
     return NextResponse.json({ reply: cleanReply, partialScript: { p1: p1Match[1].trim() } })
   }
 
-  // パート2チェック
   const p2Match = reply.match(/==PART2_START==([\s\S]*?)==PART2_END==/)
   if (p2Match) {
     const cleanReply = reply.replace(/==PART2_START==[\s\S]*?==PART2_END==/, '').trim()
     return NextResponse.json({ reply: cleanReply, partialScript: { p2: p2Match[1].trim() } })
   }
 
-  // パート3チェック
   const p3Match = reply.match(/==PART3_START==([\s\S]*?)==PART3_END==/)
   if (p3Match) {
     const cleanReply = reply.replace(/==PART3_START==[\s\S]*?==PART3_END==/, '').trim()
