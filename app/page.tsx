@@ -1,30 +1,40 @@
 'use client'
 import { useRef, useState, useEffect } from 'react'
+
 type Message = { role: 'ai' | 'user'; text: string }
+type Script = { p1: string; p2: string; p3: string }
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
-  const [scriptVisible, setScriptVisible] = useState(false)
-  const [script, setScript] = useState({ p1: '', p2: '', p3: '' })
+  const [script, setScript] = useState<Script>({ p1: '', p2: '', p3: '' })
   const [activeTab, setActiveTab] = useState('p1')
   const msgsRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
+
+  const scriptVisible = script.p1 !== '' || script.p2 !== '' || script.p3 !== ''
+
   useEffect(() => { startConversation() }, [])
   useEffect(() => {
     if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight
   }, [messages, loading])
+
   async function startConversation() {
     setLoading(true)
     setMessages([])
-    setScriptVisible(false)
     setScript({ p1: '', p2: '', p3: '' })
     if (taRef.current) taRef.current.value = ''
-    const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: [] }) })
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [] }),
+    })
     const data = await res.json()
     setMessages([{ role: 'ai', text: data.reply }])
     setLoading(false)
     taRef.current?.focus()
   }
+
   async function send() {
     if (!taRef.current || loading) return
     const text = taRef.current.value.trim()
@@ -34,13 +44,27 @@ export default function Home() {
     const newMsgs: Message[] = [...messages, { role: 'user', text }]
     setMessages(newMsgs)
     setLoading(true)
-    const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: newMsgs }) })
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: newMsgs }),
+    })
     const data = await res.json()
-    if (data.script) { setScript(data.script); setScriptVisible(true) }
+
+    // partialScriptを受け取って台本を段階的に更新
+    if (data.partialScript) {
+      setScript(prev => ({ ...prev, ...data.partialScript }))
+      // 新しいパートが来たらそのタブを表示
+      if (data.partialScript.p1) setActiveTab('p1')
+      if (data.partialScript.p2) setActiveTab('p2')
+      if (data.partialScript.p3) setActiveTab('p3')
+    }
+
     setMessages([...newMsgs, { role: 'ai', text: data.reply }])
     setLoading(false)
     taRef.current?.focus()
   }
+
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
@@ -48,10 +72,12 @@ export default function Home() {
       send()
     }
   }
+
   function copyScript() {
     const t = `=== パート1 ===\n${script.p1}\n\n=== パート2 ===\n${script.p2}\n\n=== パート3 ===\n${script.p3}`
     navigator.clipboard.writeText(t).then(() => alert('コピーしました！'))
   }
+
   return (
     <div style={{minHeight:'100vh',background:'linear-gradient(140deg,#b8d4f0 0%,#c8b8e8 35%,#e0b8d0 65%,#f0c8d8 100%)',padding:'20px 12px'}}>
       <div style={{maxWidth:720,margin:'0 auto'}}>
@@ -61,7 +87,9 @@ export default function Home() {
         </div>
         <div style={{background:'rgba(255,255,255,0.93)',borderRadius:20,overflow:'hidden',marginBottom:16}}>
           <div style={{padding:'10px 16px',background:'rgba(0,0,0,0.03)',borderBottom:'0.5px solid rgba(0,0,0,0.08)',display:'flex',justifyContent:'flex-end'}}>
-            <button onClick={startConversation} disabled={loading} style={{padding:'6px 14px',borderRadius:20,border:'0.5px solid rgba(0,0,0,0.15)',background:'white',fontSize:12,cursor:'pointer',color:'#666',fontFamily:'Noto Sans JP, sans-serif'}}>🔄 最初からやり直す</button>
+            <button onClick={startConversation} disabled={loading} style={{padding:'6px 14px',borderRadius:20,border:'0.5px solid rgba(0,0,0,0.15)',background:'white',fontSize:12,cursor:'pointer',color:'#666',fontFamily:'Noto Sans JP, sans-serif'}}>
+              🔄 最初からやり直す
+            </button>
           </div>
           <div ref={msgsRef} style={{height:380,overflowY:'auto',padding:20,display:'flex',flexDirection:'column',gap:12,background:'#f8f7fc'}}>
             {messages.map((m,i) => (
@@ -84,6 +112,7 @@ export default function Home() {
             <button onClick={send} disabled={loading} style={{width:42,height:42,borderRadius:12,border:'none',background:'linear-gradient(135deg,#7c5cbf,#c87bb8)',color:'white',cursor:'pointer',fontSize:16,flexShrink:0}}>↑</button>
           </div>
         </div>
+
         {scriptVisible && (
           <div style={{background:'rgba(255,255,255,0.93)',borderRadius:20,padding:24}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
@@ -92,13 +121,14 @@ export default function Home() {
             </div>
             <div style={{display:'flex',gap:4,marginBottom:16,background:'rgba(0,0,0,0.05)',borderRadius:10,padding:3}}>
               {(['p1','p2','p3'] as const).map(k => (
-                <button key={k} onClick={() => setActiveTab(k)} style={{flex:1,padding:'7px 4px',borderRadius:7,border:'none',background:activeTab===k?'white':'transparent',color:activeTab===k?'#7c5cbf':'#999',fontWeight:activeTab===k?700:400,fontSize:11,cursor:'pointer',fontFamily:'Noto Sans JP, sans-serif'}}>
+                <button key={k} onClick={() => setActiveTab(k)} style={{flex:1,padding:'7px 4px',borderRadius:7,border:'none',background:activeTab===k?'white':'transparent',color:activeTab===k?'#7c5cbf':script[k]?'#555':'#bbb',fontWeight:activeTab===k?700:400,fontSize:11,cursor:'pointer',fontFamily:'Noto Sans JP, sans-serif'}}>
                   {k==='p1'?'パート1':k==='p2'?'パート2':'パート3'}
+                  {script[k] ? ' ✓' : ' ...'}
                 </button>
               ))}
             </div>
             <div style={{background:'#f9f8ff',border:'0.5px solid #ddd8f8',borderRadius:12,padding:16,maxHeight:400,overflowY:'auto',fontSize:13,lineHeight:1.9,color:'#1a1025',whiteSpace:'pre-wrap'}}>
-            {script[activeTab as keyof typeof script]}
+              {script[activeTab as keyof Script] || '生成中...'}
             </div>
           </div>
         )}
