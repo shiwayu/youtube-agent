@@ -76,7 +76,7 @@ export default function Home() {
             )}
           </div>
           <div style={{padding:'12px 16px',background:'white',borderTop:'0.5px solid rgba(0,0,0,0.1)',display:'flex',gap:8,alignItems:'flex-end'}}>
-            <textarea ref={taRef} onKeyDown={onKey} placeholder="ここに入力...（Enterで送信）" rows={1} style={{flex:1,border:'0.5px solid rgba(0,0,0,0.15)',borderRadius:12,padding:'10px 14px',fontSize:13,fontFamily:'Noto Sans JP, sans-serif',resize:'none',outline:'none',lineHeight:1.6}} />
+            <textarea ref={taRef} onKeyDown={onKey} placeholder="ここに入力...（Enterで送信）" rows={1} autoComplete="off" style={{flex:1,border:'0.5px solid rgba(0,0,0,0.15)',borderRadius:12,padding:'10px 14px',fontSize:13,fontFamily:'Noto Sans JP, sans-serif',resize:'none',outline:'none',lineHeight:1.6}} />
             <button onClick={send} disabled={loading} style={{width:42,height:42,borderRadius:12,border:'none',background:'linear-gradient(135deg,#7c5cbf,#c87bb8)',color:'white',cursor:'pointer',fontSize:16,flexShrink:0}}>↑</button>
           </div>
         </div>
