@@ -17,7 +17,10 @@ export default function Home() {
   const scriptVisible = script.p1 !== '' || script.p2 !== '' || script.p3 !== ''
 
   useEffect(() => {
-    startConversation()
+    const timer = setTimeout(() => {
+      startConversation()
+    }, 500)
+    return () => clearTimeout(timer)
   }, [])
 
   useEffect(() => {
