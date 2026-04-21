@@ -10,29 +10,40 @@ export default function Home() {
   const [script, setScript] = useState<Script>({ p1: '', p2: '', p3: '' })
   const [activeTab, setActiveTab] = useState('p1')
   const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState('')
   const msgsRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
 
   const scriptVisible = script.p1 !== '' || script.p2 !== '' || script.p3 !== ''
 
-  useEffect(() => { startConversation() }, [])
+  useEffect(() => {
+    startConversation()
+  }, [])
+
   useEffect(() => {
     if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight
   }, [messages, loading])
 
   async function startConversation() {
     setLoading(true)
+    setError('')
     setMessages([])
     setScript({ p1: '', p2: '', p3: '' })
     setGenerating(false)
     if (taRef.current) taRef.current.value = ''
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: [] }),
-    })
-    const data = await res.json()
-    setMessages([{ role: 'ai', text: data.reply }])
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [] }),
+      })
+      if (!res.ok) throw new Error('サーバーエラー: ' + res.status)
+      const data = await res.json()
+      setMessages([{ role: 'ai', text: data.reply }])
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '不明なエラー'
+      setError('起動エラー: ' + msg)
+    }
     setLoading(false)
     taRef.current?.focus()
   }
@@ -46,24 +57,31 @@ export default function Home() {
     const newMsgs: Message[] = [...messages, { role: 'user', text }]
     setMessages(newMsgs)
     setLoading(true)
+    setError('')
 
     const isOK = ['ok','ＯＫ','okay','はい','よし'].includes(text.toLowerCase())
     if (isOK) setGenerating(true)
 
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: newMsgs }),
-    })
-    const data = await res.json()
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMsgs }),
+      })
+      if (!res.ok) throw new Error('サーバーエラー: ' + res.status)
+      const data = await res.json()
 
-    if (data.script) {
-      setScript(data.script)
-      setActiveTab('p1')
+      if (data.script) {
+        setScript(data.script)
+        setActiveTab('p1')
+        setGenerating(false)
+      }
+      setMessages([...newMsgs, { role: 'ai', text: data.reply }])
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '不明なエラー'
+      setError('送信エラー: ' + msg)
       setGenerating(false)
     }
-
-    setMessages([...newMsgs, { role: 'ai', text: data.reply }])
     setLoading(false)
     taRef.current?.focus()
   }
@@ -88,6 +106,13 @@ export default function Home() {
           <div style={{fontSize:20,fontWeight:700,color:'#1a1025'}}>YouTube 戦略台本エージェント</div>
           <div style={{fontSize:12,color:'#666',marginTop:4}}>チャットで答えるだけでプロ品質の台本を生成</div>
         </div>
+
+        {error && (
+          <div style={{background:'#fcebeb',border:'0.5px solid #f0c0c0',borderRadius:12,padding:'12px 16px',marginBottom:12,fontSize:13,color:'#a32d2d'}}>
+            ⚠️ {error}
+            <button onClick={startConversation} style={{marginLeft:12,padding:'4px 12px',borderRadius:8,border:'none',background:'#a32d2d',color:'white',fontSize:12,cursor:'pointer'}}>再試行</button>
+          </div>
+        )}
 
         <div style={{background:'rgba(255,255,255,0.93)',borderRadius:20,overflow:'hidden',marginBottom:16}}>
           <div style={{padding:'10px 16px',background:'rgba(0,0,0,0.03)',borderBottom:'0.5px solid rgba(0,0,0,0.08)',display:'flex',justifyContent:'flex-end'}}>
