@@ -56,7 +56,13 @@ export default function Home() {
   }
 
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      e.stopPropagation()
+      if (taRef.current) taRef.current.value = taRef.current.value.replace(/\n$/, '')
+      send()
+    }
+  }
   }
 
   function copyScript() {
