@@ -25,35 +25,27 @@ B）クライアントから依頼された案件」
 ## ヒアリング順序（必ずこの順番で1問ずつ聞く）
 
 Q1: A/B判定
-Q2: キーワード →「この動画のメインキーワードを教えてください」
-Q3: ターゲット視聴者 →「ターゲット視聴者はどんな人ですか？」
-Q4: ゴール →「A）認知 B）LINE登録 C）商品販売 D）おまかせ」
+Q2: キーワード
+Q3: ターゲット視聴者
+Q4: ゴール（A認知 B LINE登録 C商品販売 Dおまかせ）
 Q5: 発信者の情報・実績
-Q6: Beforeエピソード →「発信者自身の過去の苦労話を教えてください（視聴者の悩みではなく発信者の話）」
-Q7: Afterエピソード →「今はどう変わりましたか？」
-Q8: 独自視点 →「世間の常識への反論はありますか？なければスキップでOK」
+Q6: Beforeエピソード（発信者自身の過去の苦労話）
+Q7: Afterエピソード（発信者の現在の状態）
+Q8: 独自視点（なければスキップOK）
 Q9: 確認サマリーを表示して「OK」を待つ
 
-## 台本生成
-「OK」をもらったら、以下の形式で必ずパート1のみを先に生成する。
+## 台本生成ルール
+「OK」をもらったらパート1のみを生成する。
+パート1の最初に必ず「==PART1_START==」を、最後に必ず「==PART1_END==」を付ける。
+パート1生成後「パート1が完成しました！続いてパート2を生成します」と伝える。
 
-パート1を生成したら最後に以下を追加する：
-「パート1が完成しました！続けてパート2を生成します。少々お待ちください。」
+次のメッセージでパート2のみを生成する。
+パート2の最初に「==PART2_START==」を、最後に「==PART2_END==」を付ける。
+パート2生成後「パート2が完成しました！続いてパート3を生成します」と伝える。
 
-そして以下のJSONを出力する：
-PART1_DONE
-{"p1":"パート1の全文"}
-PART1_END
-
-次のメッセージでパート2を生成し、最後に以下を出力する：
-PART2_DONE
-{"p2":"パート2の全文"}
-PART2_END
-
-さらに次のメッセージでパート3を生成し、最後に以下を出力する：
-PART3_DONE
-{"p3":"パート3の全文"}
-PART3_END
+次のメッセージでパート3のみを生成する。
+パート3の最初に「==PART3_START==」を、最後に「==PART3_END==」を付ける。
+パート3生成後「台本が全て完成しました 🎉 下のエリアにパート1〜3が表示されています。全部コピーボタンでコピーできます。修正したい箇所があれば教えてください。」と伝える。
 
 ## 台本構成
 
@@ -115,40 +107,25 @@ export async function POST(req: NextRequest) {
   const data = await response.json()
   const reply = data.content?.[0]?.text || JSON.stringify(data)
 
-  // パート1完成チェック
-  const part1Match = reply.match(/PART1_DONE\s*([\s\S]*?)\s*PART1_END/)
-  if (part1Match) {
-    try {
-      const parsed = JSON.parse(part1Match[1])
-      const cleanReply = reply.replace(/PART1_DONE[\s\S]*?PART1_END/, '').trim()
-      return NextResponse.json({ reply: cleanReply, partialScript: { p1: parsed.p1 } })
-    } catch {
-      return NextResponse.json({ reply })
-    }
+  // パート1チェック
+  const p1Match = reply.match(/==PART1_START==([\s\S]*?)==PART1_END==/)
+  if (p1Match) {
+    const cleanReply = reply.replace(/==PART1_START==[\s\S]*?==PART1_END==/, '').trim()
+    return NextResponse.json({ reply: cleanReply, partialScript: { p1: p1Match[1].trim() } })
   }
 
-  // パート2完成チェック
-  const part2Match = reply.match(/PART2_DONE\s*([\s\S]*?)\s*PART2_END/)
-  if (part2Match) {
-    try {
-      const parsed = JSON.parse(part2Match[1])
-      const cleanReply = reply.replace(/PART2_DONE[\s\S]*?PART2_END/, '').trim()
-      return NextResponse.json({ reply: cleanReply, partialScript: { p2: parsed.p2 } })
-    } catch {
-      return NextResponse.json({ reply })
-    }
+  // パート2チェック
+  const p2Match = reply.match(/==PART2_START==([\s\S]*?)==PART2_END==/)
+  if (p2Match) {
+    const cleanReply = reply.replace(/==PART2_START==[\s\S]*?==PART2_END==/, '').trim()
+    return NextResponse.json({ reply: cleanReply, partialScript: { p2: p2Match[1].trim() } })
   }
 
-  // パート3完成チェック
-  const part3Match = reply.match(/PART3_DONE\s*([\s\S]*?)\s*PART3_END/)
-  if (part3Match) {
-    try {
-      const parsed = JSON.parse(part3Match[1])
-      const cleanReply = reply.replace(/PART3_DONE[\s\S]*?PART3_END/, '台本が完成しました 🎉\n\nパート1〜3が下のエリアに表示されています。\n「全部コピー」ボタンでコピーできます。\n\n修正したい箇所があれば「〇〇を直して」と入力してください。').trim()
-      return NextResponse.json({ reply: cleanReply, partialScript: { p3: parsed.p3 } })
-    } catch {
-      return NextResponse.json({ reply })
-    }
+  // パート3チェック
+  const p3Match = reply.match(/==PART3_START==([\s\S]*?)==PART3_END==/)
+  if (p3Match) {
+    const cleanReply = reply.replace(/==PART3_START==[\s\S]*?==PART3_END==/, '').trim()
+    return NextResponse.json({ reply: cleanReply, partialScript: { p3: p3Match[1].trim() } })
   }
 
   return NextResponse.json({ reply })
