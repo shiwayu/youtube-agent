@@ -9,6 +9,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [script, setScript] = useState<Script>({ p1: '', p2: '', p3: '' })
   const [activeTab, setActiveTab] = useState('p1')
+  const [generating, setGenerating] = useState(false)
   const msgsRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
 
@@ -23,6 +24,7 @@ export default function Home() {
     setLoading(true)
     setMessages([])
     setScript({ p1: '', p2: '', p3: '' })
+    setGenerating(false)
     if (taRef.current) taRef.current.value = ''
     const res = await fetch('/api/chat', {
       method: 'POST',
@@ -36,7 +38,7 @@ export default function Home() {
   }
 
   async function send() {
-    if (!taRef.current || loading) return
+    if (!taRef.current || loading || generating) return
     const text = taRef.current.value.trim()
     if (!text) return
     taRef.current.value = ''
@@ -44,6 +46,10 @@ export default function Home() {
     const newMsgs: Message[] = [...messages, { role: 'user', text }]
     setMessages(newMsgs)
     setLoading(true)
+
+    const isOK = ['ok','ＯＫ','okay','はい','よし'].includes(text.toLowerCase())
+    if (isOK) setGenerating(true)
+
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -51,13 +57,10 @@ export default function Home() {
     })
     const data = await res.json()
 
-    // partialScriptを受け取って台本を段階的に更新
-    if (data.partialScript) {
-      setScript(prev => ({ ...prev, ...data.partialScript }))
-      // 新しいパートが来たらそのタブを表示
-      if (data.partialScript.p1) setActiveTab('p1')
-      if (data.partialScript.p2) setActiveTab('p2')
-      if (data.partialScript.p3) setActiveTab('p3')
+    if (data.script) {
+      setScript(data.script)
+      setActiveTab('p1')
+      setGenerating(false)
     }
 
     setMessages([...newMsgs, { role: 'ai', text: data.reply }])
@@ -85,12 +88,14 @@ export default function Home() {
           <div style={{fontSize:20,fontWeight:700,color:'#1a1025'}}>YouTube 戦略台本エージェント</div>
           <div style={{fontSize:12,color:'#666',marginTop:4}}>チャットで答えるだけでプロ品質の台本を生成</div>
         </div>
+
         <div style={{background:'rgba(255,255,255,0.93)',borderRadius:20,overflow:'hidden',marginBottom:16}}>
           <div style={{padding:'10px 16px',background:'rgba(0,0,0,0.03)',borderBottom:'0.5px solid rgba(0,0,0,0.08)',display:'flex',justifyContent:'flex-end'}}>
-            <button onClick={startConversation} disabled={loading} style={{padding:'6px 14px',borderRadius:20,border:'0.5px solid rgba(0,0,0,0.15)',background:'white',fontSize:12,cursor:'pointer',color:'#666',fontFamily:'Noto Sans JP, sans-serif'}}>
+            <button onClick={startConversation} disabled={loading||generating} style={{padding:'6px 14px',borderRadius:20,border:'0.5px solid rgba(0,0,0,0.15)',background:'white',fontSize:12,cursor:'pointer',color:'#666',fontFamily:'Noto Sans JP, sans-serif'}}>
               🔄 最初からやり直す
             </button>
           </div>
+
           <div ref={msgsRef} style={{height:380,overflowY:'auto',padding:20,display:'flex',flexDirection:'column',gap:12,background:'#f8f7fc'}}>
             {messages.map((m,i) => (
               <div key={i} style={{display:'flex',flexDirection:'column',alignItems:m.role==='ai'?'flex-start':'flex-end'}}>
@@ -98,18 +103,35 @@ export default function Home() {
                 <div style={{maxWidth:'85%',padding:'12px 16px',borderRadius:16,fontSize:13,lineHeight:1.8,whiteSpace:'pre-wrap',background:m.role==='ai'?'white':'linear-gradient(135deg,#7c5cbf,#c87bb8)',color:m.role==='ai'?'#1a1025':'white',border:m.role==='ai'?'0.5px solid rgba(0,0,0,0.1)':'none',borderBottomLeftRadius:m.role==='ai'?4:16,borderBottomRightRadius:m.role==='user'?4:16}}>{m.text}</div>
               </div>
             ))}
-            {loading && (
+            {(loading || generating) && (
               <div style={{display:'flex',flexDirection:'column',alignItems:'flex-start'}}>
                 <div style={{fontSize:10,color:'#999',marginBottom:3,padding:'0 4px'}}>AI</div>
-                <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.1)',borderRadius:16,borderBottomLeftRadius:4,padding:'12px 16px',display:'flex',gap:4}}>
-                  {[0,1,2].map(j => <div key={j} style={{width:6,height:6,borderRadius:'50%',background:'#ccc',animation:'blink 1.2s infinite',animationDelay:`${j*0.2}s`}} />)}
+                <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.1)',borderRadius:16,borderBottomLeftRadius:4,padding:'12px 16px'}}>
+                  {generating ? (
+                    <div style={{fontSize:12,color:'#7c5cbf',fontFamily:'Noto Sans JP, sans-serif'}}>
+                      台本を生成中です... 少々お待ちください 🎬
+                    </div>
+                  ) : (
+                    <div style={{display:'flex',gap:4}}>
+                      {[0,1,2].map(j => <div key={j} style={{width:6,height:6,borderRadius:'50%',background:'#ccc',animation:'blink 1.2s infinite',animationDelay:`${j*0.2}s`}} />)}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
+
           <div style={{padding:'12px 16px',background:'white',borderTop:'0.5px solid rgba(0,0,0,0.1)',display:'flex',gap:8,alignItems:'flex-end'}}>
-            <textarea ref={taRef} onKeyDown={onKey} placeholder="ここに入力...（Enterで送信）" rows={1} autoComplete="off" style={{flex:1,border:'0.5px solid rgba(0,0,0,0.15)',borderRadius:12,padding:'10px 14px',fontSize:13,fontFamily:'Noto Sans JP, sans-serif',resize:'none',outline:'none',lineHeight:1.6}} />
-            <button onClick={send} disabled={loading} style={{width:42,height:42,borderRadius:12,border:'none',background:'linear-gradient(135deg,#7c5cbf,#c87bb8)',color:'white',cursor:'pointer',fontSize:16,flexShrink:0}}>↑</button>
+            <textarea
+              ref={taRef}
+              onKeyDown={onKey}
+              placeholder={generating ? '台本生成中...' : 'ここに入力...（Enterで送信）'}
+              disabled={generating}
+              rows={1}
+              autoComplete="off"
+              style={{flex:1,border:'0.5px solid rgba(0,0,0,0.15)',borderRadius:12,padding:'10px 14px',fontSize:13,fontFamily:'Noto Sans JP, sans-serif',resize:'none',outline:'none',lineHeight:1.6,opacity:generating?0.5:1}}
+            />
+            <button onClick={send} disabled={loading||generating} style={{width:42,height:42,borderRadius:12,border:'none',background:'linear-gradient(135deg,#7c5cbf,#c87bb8)',color:'white',cursor:generating?'not-allowed':'pointer',fontSize:16,flexShrink:0,opacity:loading||generating?0.5:1}}>↑</button>
           </div>
         </div>
 
@@ -121,14 +143,13 @@ export default function Home() {
             </div>
             <div style={{display:'flex',gap:4,marginBottom:16,background:'rgba(0,0,0,0.05)',borderRadius:10,padding:3}}>
               {(['p1','p2','p3'] as const).map(k => (
-                <button key={k} onClick={() => setActiveTab(k)} style={{flex:1,padding:'7px 4px',borderRadius:7,border:'none',background:activeTab===k?'white':'transparent',color:activeTab===k?'#7c5cbf':script[k]?'#555':'#bbb',fontWeight:activeTab===k?700:400,fontSize:11,cursor:'pointer',fontFamily:'Noto Sans JP, sans-serif'}}>
+                <button key={k} onClick={() => setActiveTab(k)} style={{flex:1,padding:'7px 4px',borderRadius:7,border:'none',background:activeTab===k?'white':'transparent',color:activeTab===k?'#7c5cbf':'#555',fontWeight:activeTab===k?700:400,fontSize:11,cursor:'pointer',fontFamily:'Noto Sans JP, sans-serif'}}>
                   {k==='p1'?'パート1':k==='p2'?'パート2':'パート3'}
-                  {script[k] ? ' ✓' : ' ...'}
                 </button>
               ))}
             </div>
             <div style={{background:'#f9f8ff',border:'0.5px solid #ddd8f8',borderRadius:12,padding:16,maxHeight:400,overflowY:'auto',fontSize:13,lineHeight:1.9,color:'#1a1025',whiteSpace:'pre-wrap'}}>
-              {script[activeTab as keyof Script] || '生成中...'}
+              {script[activeTab as keyof Script]}
             </div>
           </div>
         )}
