@@ -76,12 +76,21 @@ async function callClaude(messages: {role: string, content: string}[], system: s
 }
 
 function extractInfo(messages: {role: string, content: string}[]) {
-  const conversation = messages.map(m => `${m.role}: ${m.content}`).join('\n')
-  return conversation
+  return messages.map(m => `${m.role}: ${m.content}`).join('\n')
 }
 
 export async function POST(req: NextRequest) {
   const { messages } = await req.json()
+
+  // 初回起動（messagesが空）の場合は挨拶を返す
+  if (!messages || messages.length === 0) {
+    const reply = await callClaude(
+      [{ role: 'user', content: 'スタート' }],
+      HIRING_PROMPT,
+      800
+    )
+    return NextResponse.json({ reply })
+  }
 
   const apiMessages = messages.map((m: { role: string; text: string }) => ({
     role: m.role === 'ai' ? 'assistant' : 'user',
@@ -89,12 +98,11 @@ export async function POST(req: NextRequest) {
   }))
 
   const lastUserMsg = messages[messages.length - 1]?.text?.trim().toLowerCase() || ''
-  const isOK = lastUserMsg === 'ok' || lastUserMsg === 'ＯＫ' || lastUserMsg === 'okay' || lastUserMsg === 'はい' || lastUserMsg === 'よし'
+  const isOK = ['ok', 'ＯＫ', 'okay', 'はい', 'よし'].includes(lastUserMsg)
 
-  // OKが来たら3パートを連続生成
+  // OKが来たら3パートを並列生成
   if (isOK && messages.length > 5) {
     const conversationContext = extractInfo(apiMessages.slice(0, -1))
-
     const basePrompt = `以下の会話から情報を抽出して台本を生成してください：\n\n${conversationContext}`
 
     const p1Prompt = `${basePrompt}
@@ -139,12 +147,11 @@ export async function POST(req: NextRequest) {
         callClaude([{ role: 'user', content: p2Prompt }], SCRIPT_PROMPT, 2000),
         callClaude([{ role: 'user', content: p3Prompt }], SCRIPT_PROMPT, 1500),
       ])
-
       return NextResponse.json({
         reply: '台本が完成しました 🎉\n\n下のエリアにパート1〜3が表示されています。\n「全部コピー」ボタンでコピーできます。\n\n修正したい箇所があれば「〇〇を直して」と入力してください。',
         script: { p1, p2, p3 }
       })
-    } catch (e) {
+    } catch {
       return NextResponse.json({ reply: '台本の生成中にエラーが発生しました。もう一度「OK」と入力してください。' })
     }
   }
